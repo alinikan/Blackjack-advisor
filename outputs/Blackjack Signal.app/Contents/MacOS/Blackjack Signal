@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+contents_dir="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+index_file="$contents_dir/Resources/app/index.html"
+
+if [ ! -f "$index_file" ]; then
+  osascript -e 'display dialog "Blackjack Signal could not find its app files." buttons {"OK"} default button "OK"' >/dev/null 2>&1 || true
+  exit 1
+fi
+
+open "$index_file"

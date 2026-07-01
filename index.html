@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#071a15" />
+    <meta
+      name="description"
+      content="A fast, private blackjack decision assistant with composition-aware expected value analysis."
+    />
+    <title>Blackjack Signal</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="noise" aria-hidden="true"></div>
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Blackjack Signal home">
+        <span class="brand-mark">BS</span>
+        <span>
+          <strong>Blackjack Signal</strong>
+          <small>Decision intelligence</small>
+        </span>
+      </a>
+      <div class="topbar-actions">
+        <span class="local-pill"><i></i> Local &amp; instant</span>
+        <button class="icon-button" id="settingsButton" type="button" aria-label="Open table settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.42 1.42-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-2v-.08a1.7 1.7 0 0 0-1.1-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.42-1.42.06-.06A1.7 1.7 0 0 0 9.35 15a1.7 1.7 0 0 0-1.56-1.03H7.7v-2h.08a1.7 1.7 0 0 0 1.56-1.1A1.7 1.7 0 0 0 9 9l-.06-.06 1.42-1.42.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1.03-1.56V6.3h2v.08a1.7 1.7 0 0 0 1.1 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 1.42 1.42-.06.06a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.56 1.03H21v2h-.08A1.7 1.7 0 0 0 19.4 15Z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section class="hero-copy">
+        <div>
+          <p class="eyebrow">Advantage command center</p>
+          <h1>Make the next move<br /><em>with the math.</em></h1>
+        </div>
+        <div class="hero-right">
+          <p class="hero-note">Enter the visible cards. The engine compares every legal move, scores the table, and keeps risk controls one tap away.</p>
+          <div class="mode-switch" id="modeSwitch" aria-label="Game mode">
+            <button type="button" data-mode="live" class="active">Live shoe</button>
+            <button type="button" data-mode="rng">RNG</button>
+            <button type="button" data-mode="csm">CSM</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="workspace-grid">
+        <section class="entry-panel panel">
+          <div class="panel-heading">
+            <div>
+              <span class="step-number">01</span>
+              <h2>Dealer upcard</h2>
+            </div>
+            <button class="text-button" id="clearDealerButton" type="button">Clear</button>
+          </div>
+          <div id="dealerSlot" class="dealer-slot empty">
+            <span class="card-placeholder">?</span>
+            <span>Choose the dealer's visible card</span>
+          </div>
+          <div class="rank-grid compact" id="dealerRanks" aria-label="Dealer card choices"></div>
+
+          <div class="section-divider"></div>
+
+          <div class="panel-heading">
+            <div>
+              <span class="step-number">02</span>
+              <h2>Your hand</h2>
+            </div>
+            <span class="hand-total" id="handTotal">Waiting</span>
+          </div>
+          <div id="playerHand" class="player-hand empty" aria-live="polite">
+            <div class="empty-hand">
+              <span></span><span></span>
+              <p>Add your first two cards</p>
+            </div>
+          </div>
+          <div class="rank-grid" id="playerRanks" aria-label="Player card choices"></div>
+          <p class="input-hint"><kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd>, <kbd>J</kbd>, <kbd>Q</kbd>, <kbd>K</kbd>, <kbd>A</kbd> also work</p>
+
+          <div class="quick-actions">
+            <button class="secondary-button" id="undoButton" type="button" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5"/><path d="M5 12h8a6 6 0 0 1 6 6"/></svg>
+              Undo card
+            </button>
+            <button class="primary-button" id="newHandButton" type="button">
+              New hand
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+          </div>
+        </section>
+
+        <section class="analysis-column">
+          <div class="decision-card panel waiting" id="decisionCard" aria-live="polite">
+            <div class="decision-topline">
+              <span id="decisionKicker">Ready when you are</span>
+              <span class="speed-badge" id="speedBadge">&lt; 1 ms</span>
+            </div>
+            <div class="decision-main">
+              <div>
+                <p class="decision-label">Best move</p>
+                <h2 id="decisionAction">ADD CARDS</h2>
+              </div>
+              <div class="ev-orb" id="evOrb">
+                <span>EV</span>
+                <strong id="decisionEv">—</strong>
+              </div>
+            </div>
+            <p class="decision-reason" id="decisionReason">Choose the dealer upcard and add at least two cards to your hand.</p>
+            <div class="edge-meter">
+              <div class="edge-track"><span id="edgeFill"></span><i></i></div>
+              <div class="edge-labels"><span>House edge</span><span>Player edge</span></div>
+            </div>
+            <button class="glass-button" id="logDecisionButton" type="button" disabled>Log this EV decision</button>
+          </div>
+
+          <div class="probability-card panel">
+            <div class="panel-title-row">
+              <div>
+                <p class="eyebrow">Recommended line</p>
+                <h3>Outcome probabilities</h3>
+              </div>
+              <span class="model-tag">Composition adjusted</span>
+            </div>
+            <div class="probability-list">
+              <div class="probability-row win">
+                <div><span>Win</span><strong id="winProbability">—</strong></div>
+                <div class="probability-track"><span id="winBar"></span></div>
+              </div>
+              <div class="probability-row push">
+                <div><span>Push</span><strong id="pushProbability">—</strong></div>
+                <div class="probability-track"><span id="pushBar"></span></div>
+              </div>
+              <div class="probability-row loss">
+                <div><span>Lose</span><strong id="lossProbability">—</strong></div>
+                <div class="probability-track"><span id="lossBar"></span></div>
+              </div>
+            </div>
+            <div class="stat-strip">
+              <div><span>Dealer bust</span><strong id="dealerBust">—</strong></div>
+              <div><span>Cards left</span><strong id="cardsLeft">312</strong></div>
+              <div><span>True count</span><strong id="trueCount">+0.0</strong></div>
+            </div>
+          </div>
+
+          <div class="comparison-card panel">
+            <div class="panel-title-row">
+              <div>
+                <p class="eyebrow">Decision table</p>
+                <h3>Every legal option</h3>
+              </div>
+              <span class="return-label">Return / $1</span>
+            </div>
+            <div id="actionComparison" class="action-comparison">
+              <div class="comparison-empty">Your options will appear here.</div>
+            </div>
+          </div>
+
+          <div class="profile-card panel">
+            <div class="panel-title-row">
+              <div>
+                <p class="eyebrow">Table profiler</p>
+                <h3>Rules quality</h3>
+              </div>
+              <span class="model-tag" id="engineModel">Fast live</span>
+            </div>
+            <div class="profile-score">
+              <div class="score-orb"><span id="tableGrade">A</span><small id="tableScore">96/100</small></div>
+              <div>
+                <strong id="houseEdgeEstimate">0.34% house edge</strong>
+                <p id="tableSummary">Strong rules for online blackjack. Keep side bets off and avoid 6:5 tables.</p>
+              </div>
+            </div>
+            <div class="warning-list" id="warningList"></div>
+          </div>
+        </section>
+      </div>
+
+      <section class="tracker-panel panel">
+        <button class="tracker-toggle" id="trackerToggle" type="button" aria-expanded="false">
+          <span>
+            <span class="tracker-icon">#</span>
+            <span><strong>Seen-card tracker</strong><small>Optional: include other exposed cards for sharper composition estimates</small></span>
+          </span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="tracker-body" id="trackerBody" hidden>
+          <div class="tracker-summary">
+            <p>Tap cards visible elsewhere on the table. These are removed from the estimated shoe.</p>
+            <button class="text-button" id="clearSeenButton" type="button">Clear seen cards</button>
+          </div>
+          <div class="rank-grid tracker-ranks" id="seenRanks"></div>
+          <div class="seen-list" id="seenList"><span>No additional cards tracked</span></div>
+        </div>
+      </section>
+
+      <section class="toolkit-grid">
+        <div class="tool-card panel">
+          <div class="panel-title-row">
+            <div>
+              <p class="eyebrow">Bankroll optimizer</p>
+              <h3>Bet sizing</h3>
+            </div>
+            <span class="return-label">Risk aware</span>
+          </div>
+          <div class="mini-form">
+            <label><span>Bankroll</span><input id="bankrollInput" type="number" min="0" step="10" value="500" /></label>
+            <label><span>Min bet</span><input id="minBetInput" type="number" min="0" step="1" value="10" /></label>
+            <label><span>Max bet</span><input id="maxBetInput" type="number" min="1" step="1" value="100" /></label>
+            <label><span>Risk</span><select id="riskSetting"><option value="cautious">Cautious</option><option value="balanced">Balanced</option><option value="aggressive">Aggressive</option></select></label>
+          </div>
+          <div class="tool-result">
+            <span>Suggested bet</span>
+            <strong id="suggestedBet">$10.00</strong>
+            <p id="bankrollMessage">Minimum bet or skip when the edge is negative.</p>
+          </div>
+        </div>
+
+        <div class="tool-card panel">
+          <div class="panel-title-row">
+            <div>
+              <p class="eyebrow">Bonus calculator</p>
+              <h3>Wagering EV</h3>
+            </div>
+            <span class="return-label">Promo check</span>
+          </div>
+          <div class="mini-form">
+            <label><span>Deposit</span><input id="depositInput" type="number" min="0" step="10" value="100" /></label>
+            <label><span>Bonus</span><input id="bonusInput" type="number" min="0" step="10" value="100" /></label>
+            <label><span>Wager x</span><input id="wagerInput" type="number" min="0" step="1" value="30" /></label>
+            <label><span>Game contribution %</span><input id="contributionInput" type="number" min="1" max="100" step="1" value="100" /></label>
+          </div>
+          <div class="tool-result">
+            <span>Estimated promo EV</span>
+            <strong id="bonusEv">+$0.00</strong>
+            <p id="bonusMessage">Enter the exact casino terms before trusting the number.</p>
+          </div>
+        </div>
+
+        <div class="tool-card panel practice-card">
+          <div class="panel-title-row">
+            <div>
+              <p class="eyebrow">Practice trainer</p>
+              <h3>Speed drills</h3>
+            </div>
+            <button class="text-button" id="newPracticeButton" type="button">New drill</button>
+          </div>
+          <div class="practice-hand" id="practiceHand">Tap New drill to train.</div>
+          <div class="practice-actions" id="practiceActions">
+            <button type="button" data-practice-action="HIT">Hit</button>
+            <button type="button" data-practice-action="STAND">Stand</button>
+            <button type="button" data-practice-action="DOUBLE">Double</button>
+            <button type="button" data-practice-action="SPLIT">Split</button>
+            <button type="button" data-practice-action="SURRENDER">Surrender</button>
+          </div>
+          <div class="practice-feedback" id="practiceFeedback">Accuracy: <strong id="practiceScore">0/0</strong></div>
+        </div>
+
+        <div class="tool-card panel">
+          <div class="panel-title-row">
+            <div>
+              <p class="eyebrow">EV history</p>
+              <h3>Decision log</h3>
+            </div>
+            <button class="text-button" id="clearHistoryButton" type="button">Clear</button>
+          </div>
+          <div class="history-stats">
+            <div><span>Hands logged</span><strong id="historyCount">0</strong></div>
+            <div><span>Avg best EV</span><strong id="historyAverage">—</strong></div>
+          </div>
+          <div class="history-list" id="historyList">No decisions logged yet.</div>
+        </div>
+      </section>
+
+      <footer>
+        <p>Probability guidance, not a guarantee. Play within your limits and follow local rules.</p>
+        <p id="rulesSummary">6 decks · Dealer stands soft 17 · Double after split</p>
+      </footer>
+    </main>
+
+    <div class="modal-backdrop" id="settingsModal" hidden>
+      <section class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="settings-header">
+          <div>
+            <p class="eyebrow">Engine configuration</p>
+            <h2 id="settingsTitle">Table rules</h2>
+          </div>
+          <button class="icon-button" id="closeSettingsButton" type="button" aria-label="Close settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
+        <div class="settings-grid">
+          <label class="setting-field">
+            <span>Game mode</span>
+            <select id="modeSetting">
+              <option value="live" selected>Live shoe</option><option value="rng">Online RNG</option><option value="csm">Continuous shuffle</option>
+            </select>
+          </label>
+          <label class="setting-field">
+            <span>Calculation model</span>
+            <select id="precisionSetting">
+              <option value="fast" selected>Fast live model</option><option value="exact">Exact finite audit</option>
+            </select>
+          </label>
+          <label class="setting-field">
+            <span>Number of decks</span>
+            <select id="decksSetting">
+              <option value="1">1 deck</option><option value="2">2 decks</option><option value="4">4 decks</option><option value="6" selected>6 decks</option><option value="8">8 decks</option>
+            </select>
+          </label>
+          <label class="setting-field">
+            <span>Blackjack pays</span>
+            <select id="payoutSetting"><option value="1.5" selected>3 to 2</option><option value="1.2">6 to 5</option></select>
+          </label>
+          <label class="setting-field">
+            <span>Double rule</span>
+            <select id="doublePolicySetting"><option value="anyTwo" selected>Any two cards</option><option value="nineToEleven">9 to 11 only</option><option value="hard9To11">Hard 9 to 11</option><option value="tenEleven">10 to 11 only</option><option value="none">No double</option></select>
+          </label>
+          <label class="switch-row"><span><strong>Dealer hits soft 17</strong><small>Otherwise dealer stands</small></span><input id="h17Setting" type="checkbox" /><i></i></label>
+          <label class="switch-row"><span><strong>Late surrender</strong><small>Offer surrender as an option</small></span><input id="surrenderSetting" type="checkbox" checked /><i></i></label>
+          <label class="switch-row"><span><strong>Double after split</strong><small>Allow doubling split hands</small></span><input id="dasSetting" type="checkbox" checked /><i></i></label>
+          <label class="switch-row"><span><strong>Dealer peeked</strong><small>Condition on no dealer blackjack</small></span><input id="peekSetting" type="checkbox" checked /><i></i></label>
+          <label class="switch-row"><span><strong>No-hole-card game</strong><small>European-style dealer draw</small></span><input id="noHoleSetting" type="checkbox" /><i></i></label>
+          <label class="switch-row"><span><strong>Split aces</strong><small>Allow ace pairs to split</small></span><input id="splitAcesSetting" type="checkbox" checked /><i></i></label>
+          <label class="switch-row"><span><strong>Resplit aces</strong><small>Improves table quality</small></span><input id="resplitAcesSetting" type="checkbox" /><i></i></label>
+          <label class="switch-row"><span><strong>Side bets shown</strong><small>Warn against high-edge extras</small></span><input id="sideBetsSetting" type="checkbox" /><i></i></label>
+        </div>
+        <button class="primary-button full-width" id="saveSettingsButton" type="button">Apply rules</button>
+      </section>
+    </div>
+
+    <script src="blackjack-engine.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
